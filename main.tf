@@ -1,5 +1,37 @@
 provider "aws" {
-  region = "${var.aws_region}"
+  access_key = "${var.aws_access_key}"
+  secret_key = "${var.aws_secret_key}"
+  region     = "${var.aws_region}"
+}
+
+# Create a new load balancer
+resource "aws_elb" "my-test-elb" {
+  availability_zones = ["${aws_instance.my-test-instance.availability_zone}"]
+
+  listener {
+    instance_port     = 80
+    instance_protocol = "http"
+    lb_port           = 80
+    lb_protocol       = "http"
+  }
+
+  health_check {
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    timeout             = 3
+    target              = "HTTP:80/"
+    interval            = 30
+  }
+
+  instances                   = ["${aws_instance.my-test-instance.id}"]
+  cross_zone_load_balancing   = true
+  idle_timeout                = 400
+  connection_draining         = true
+  connection_draining_timeout = 400
+
+  tags = {
+    Name = "test-elb"
+  }
 }
 
 resource "aws_security_group" "default" {
@@ -45,10 +77,10 @@ resource "aws_instance" "my-test-instance" {
     private_key = "${file(var.aws_key_path)}"
   }
 
-  # provisioner "file" {
-  #   source      = "files/"
-  #   destination = "/tmp"
-  # }
+  provisioner "file" {
+    source      = "aman/"
+    destination = "/tmp"
+  }
 
   provisioner "remote-exec" {
     inline = [
@@ -61,7 +93,6 @@ resource "aws_instance" "my-test-instance" {
       "sudo service docker start",
       "sudo docker pull nginx",
       "sudo docker run -d -p 80:80 -v /tmp:/usr/share/nginx/html --name nginx_test nginx",
-      "sudo echo just make one up and make the file part of your Github repo > /tmp/index.html",
     ]
   }
 }
